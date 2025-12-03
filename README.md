@@ -100,16 +100,46 @@ The server starts on `http://localhost:9090`.
 simple_gui_designer/
 ├── src/
 │   ├── app/                    # Application entry point
-│   ├── server/                 # HTMX web server
+│   ├── server/                 # HTMX web server and handlers
+│   │   └── handlers/           # Route handlers (modular)
 │   ├── shared/                 # Logging utilities
 │   └── spec/                   # Spec data classes
 ├── specs/                      # Saved specification files
-├── testing/                    # Unit tests
+├── testing/                    # Unit tests (10 tests)
 ├── simple_gui_designer.ecf    # Eiffel configuration
-├── ROADMAP.md                 # Development roadmap
 └── README.md                  # This file
 ```
 
+## Roadmap
+
+### Completed Features
+- [x] Visual drag-and-drop canvas with 12-column grid
+- [x] 12 control types (heading, label, text_field, text_area, button, dropdown, checkbox, date_picker, table, link, card, tabs)
+- [x] Container controls with nested children (card, tabs)
+- [x] Multi-screen support with navigation
+- [x] Properties panel for editing control attributes
+- [x] Import/Export JSON specifications
+- [x] Finalize workflow for production specs
+- [x] Refactored to use simple_htmx fluent HTML builder
+- [x] Comprehensive regression tests
+
+### Planned Features
+- [ ] Undo/redo support
+- [ ] Copy/paste controls between screens
+- [ ] Control alignment helpers
+- [ ] Preview mode (render as actual HTML)
+- [ ] Code generation templates
+
+## Dependencies
+
+| Library | Purpose |
+|---------|---------|
+| `simple_json` | JSON parsing and serialization |
+| `simple_web` | HTTP server and routing |
+| `simple_htmx` | Fluent HTML/HTMX generation |
+| `simple_process` | Process management |
+| `testing_ext` | Test framework extensions |
+
 ## License
 
-MIT License
+MIT License - Copyright (c) 2024-2025, Larry Rix

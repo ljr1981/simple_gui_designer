@@ -66,12 +66,27 @@ feature {NONE} -- Initialization
 			-- Load controls
 			if attached a_json.array_item ("controls") as l_controls then
 				l_arr := l_controls
-				from i := 1 until i > l_arr.count loop
-					if attached l_arr.item (i).as_object as l_obj then
-						controls.extend (create {GUI_DESIGNER_CONTROL}.make_from_json (l_obj))
+				from
+					i := 1
+				invariant
+					i >= 1
+					i <= l_arr.count + 1
+					controls.count <= i - 1
+				until
+					i > l_arr.count
+				loop
+					check valid_index: l_arr.valid_index (i) end
+					if l_arr.item (i).is_object then
+						if attached l_arr.item (i).as_object as l_obj then
+							check has_required_keys: l_obj.has_all_keys (<<"id", "type">>) end
+							controls.extend (create {GUI_DESIGNER_CONTROL}.make_from_json (l_obj))
+						end
 					end
 					i := i + 1
+				variant
+					l_arr.count - i + 1
 				end
+				check all_controls_loaded: controls.count = l_arr.count end
 			end
 
 			-- Load notes

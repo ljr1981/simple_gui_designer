@@ -78,8 +78,17 @@ feature {NONE} -- Initialization
 				label := ""
 			end
 
-			grid_row := a_json.optional_integer ("row", 1).to_integer_32
-			grid_col := a_json.optional_integer ("col", 1).to_integer_32
+			-- Support both "grid_row"/"grid_col" and "row"/"col" key names
+			if a_json.has_key ("grid_row") then
+				grid_row := a_json.optional_integer ("grid_row", 1).to_integer_32
+			else
+				grid_row := a_json.optional_integer ("row", 1).to_integer_32
+			end
+			if a_json.has_key ("grid_col") then
+				grid_col := a_json.optional_integer ("grid_col", 1).to_integer_32
+			else
+				grid_col := a_json.optional_integer ("col", 1).to_integer_32
+			end
 			col_span := a_json.optional_integer ("col_span", 3).to_integer_32
 			row_span := a_json.optional_integer ("row_span", 1).to_integer_32
 
@@ -334,7 +343,7 @@ feature -- Status Report
 	is_valid_control_type (a_type: STRING_32): BOOLEAN
 			-- Is this a known control type?
 		do
-			Result := valid_control_types.has (a_type.to_string_8)
+			Result := across valid_control_types as t some t.same_string (a_type) end
 		end
 
 	valid_control_types: ARRAY [STRING]

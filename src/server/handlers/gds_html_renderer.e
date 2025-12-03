@@ -22,7 +22,7 @@ deferred class
 inherit
 	GDS_SHARED_STATE
 
-feature {NONE} -- HTML Factory
+feature {GDS_HTML_RENDERER, GDS_STATIC_HTML} -- HTML Factory
 
 	html: HTMX_FACTORY
 			-- HTML element factory.

@@ -70,21 +70,38 @@ feature {NONE} -- Initialization
 			l_dir: DIRECTORY
 			l_json: SIMPLE_JSON
 			l_file_path: STRING_32
+			l_parsed: detachable SIMPLE_JSON_VALUE
 		do
 			log_debug ("[INIT] Loading specs from directory: " + specs_directory)
 			create l_dir.make (specs_directory)
 			if l_dir.exists then
+				log_debug ("[INIT] Directory exists, creating JSON parser")
 				create l_json
+				log_debug ("[INIT] JSON parser created, iterating files")
 				across l_dir.linear_representation as al_entry loop
+					log_debug ("[INIT] Checking file: " + al_entry)
 					if al_entry.ends_with (".json") then
 						l_file_path := specs_directory + "/" + al_entry
 						log_debug ("[INIT] Attempting to parse: " + s8 (l_file_path))
-						if attached l_json.parse_file (l_file_path) as al_parsed and then
-						   al_parsed.is_object and then attached al_parsed.as_object as al_obj then
-							if al_obj.has_key ("app_name") or al_obj.has_key ("app") then
-								load_spec_from_json (al_obj, al_entry)
+						l_parsed := l_json.parse_file (l_file_path)
+						log_debug ("[INIT] Parse complete, checking result")
+						if attached l_parsed as al_parsed then
+							log_debug ("[INIT] Parsed attached, checking is_object")
+							if al_parsed.is_object then
+								log_debug ("[INIT] Is object, getting as_object")
+								if attached al_parsed.as_object as al_obj then
+									log_debug ("[INIT] Got object, checking keys")
+									if al_obj.has_key ("app_name") or al_obj.has_key ("app") then
+										log_debug ("[INIT] Has app key, calling load_spec_from_json")
+										load_spec_from_json (al_obj, al_entry)
+									else
+										log_warning ("[INIT] Skipping file without app_name/app: " + s8 (l_file_path))
+									end
+								else
+									log_warning ("[INIT] as_object returned Void")
+								end
 							else
-								log_warning ("[INIT] Skipping file without app_name/app: " + s8 (l_file_path))
+								log_warning ("[INIT] Parsed value is not object")
 							end
 						else
 							log_parse_error (s8 (l_file_path), l_json.errors_as_string.to_string_8)
