@@ -1,6 +1,6 @@
 note
 	description: "[
-		HTML rendering features for GUI Designer.
+		HTML rendering features for GUI Designer using simple_htmx.
 
 		Provides all HTML rendering functions:
 		- render_canvas: Screen canvas with controls
@@ -9,6 +9,8 @@ note
 		- render_properties: Properties panel for selected control
 		- render_screen_list: Screen list sidebar
 		- render_spec_list: Spec list for index page
+
+		Refactored to use simple_htmx fluent HTML builder.
 	]"
 	author: "Claude Code"
 	date: "$Date$"
@@ -20,29 +22,35 @@ deferred class
 inherit
 	GDS_SHARED_STATE
 
+feature {NONE} -- HTML Factory
+
+	html: HTMX_FACTORY
+			-- HTML element factory.
+		once
+			create Result
+		end
+
 feature -- Canvas Rendering
 
 	render_canvas (a_screen: GUI_DESIGNER_SCREEN; a_spec_id: STRING_32): STRING
 			-- Render screen as HTML canvas with 12-column grid.
 		local
 			l_row, l_max_row: INTEGER
+			l_canvas, l_row_div: HTMX_DIV
 		do
-			create Result.make (2000)
-			Result.append ("<div class=%"canvas-grid%">%N")
-			Result.append ("  <h3>")
-			Result.append (s8 (a_screen.title))
-			Result.append ("</h3>%N")
+			l_canvas := html.div.class_ ("canvas-grid")
+			l_canvas.containing (html.h3.text (s8 (a_screen.title))).do_nothing
 
 			l_max_row := a_screen.row_count.max (6)
 			from l_row := 1 until l_row > l_max_row loop
-				Result.append ("  <div class=%"grid-row%">%N")
+				l_row_div := html.div.class_ ("grid-row")
 				across a_screen.controls_at_row (l_row) as l_control loop
-					Result.append (render_control (l_control, a_spec_id, a_screen.id))
+					l_row_div.raw_html (render_control (l_control, a_spec_id, a_screen.id)).do_nothing
 				end
-				Result.append ("  </div>%N")
+				l_canvas.containing (l_row_div).do_nothing
 				l_row := l_row + 1
 			end
-			Result.append ("</div>")
+			Result := l_canvas.to_html_8
 		end
 
 feature -- Control Rendering
@@ -62,345 +70,388 @@ feature -- Control Rendering
 
 	render_simple_control (a_control: GUI_DESIGNER_CONTROL; a_spec_id, a_screen_id: STRING_32): STRING
 			-- Render non-container control.
+		local
+			l_div, l_label_span: HTMX_DIV
+			l_props_url: STRING
 		do
-			create Result.make (500)
-			Result.append ("    <div class=%"control col-")
-			Result.append (a_control.col_span.out)
-			Result.append (" type-")
-			Result.append (s8 (a_control.control_type))
-			Result.append ("%" data-id=%"")
-			Result.append (s8 (a_control.id))
-			Result.append ("%" draggable=%"true%" ")
-			Result.append ("hx-get=%"/htmx/properties/")
-			Result.append (s8 (a_spec_id))
-			Result.append ("/")
-			Result.append (s8 (a_screen_id))
-			Result.append ("/")
-			Result.append (s8 (a_control.id))
-			Result.append ("%" hx-target=%"#properties%" hx-swap=%"innerHTML%" ")
-			Result.append ("onclick=%"event.stopPropagation(); document.querySelectorAll('.control.selected').forEach(c=>c.classList.remove('selected')); this.classList.add('selected');%">%N")
-			Result.append ("      <span class=%"control-label%">")
+			l_props_url := "/htmx/properties/" + s8 (a_spec_id) + "/" + s8 (a_screen_id) + "/" + s8 (a_control.id)
+
+			l_div := html.div
+				.class_ ("control")
+				.class_ ("col-" + a_control.col_span.out)
+				.class_ ("type-" + s8 (a_control.control_type))
+				.data ("id", s8 (a_control.id))
+				.attr ("draggable", "true")
+				.hx_get (l_props_url)
+				.hx_target ("#properties")
+				.hx_swap_inner_html
+				.attr ("onclick", "event.stopPropagation(); document.querySelectorAll('.control.selected').forEach(c=>c.classList.remove('selected')); this.classList.add('selected');")
+
+			create l_label_span.make
+			l_label_span.class_ ("control-label").do_nothing
 			if a_control.label.is_empty then
-				Result.append ("[" + s8 (a_control.id) + "]")
+				l_label_span.text ("[" + s8 (a_control.id) + "]").do_nothing
 			else
-				Result.append (s8 (a_control.label))
+				l_label_span.text (s8 (a_control.label)).do_nothing
 			end
-			Result.append ("</span>%N")
-			Result.append ("    </div>%N")
+			l_div.containing (l_label_span).do_nothing
+
+			Result := l_div.to_html_8
 		end
 
 	render_card_control (a_control: GUI_DESIGNER_CONTROL; a_spec_id, a_screen_id: STRING_32): STRING
 			-- Render card container with drop zone for children.
+		local
+			l_card, l_header, l_body: HTMX_DIV
+			l_props_url: STRING
 		do
 			log_debug ("[RENDER] Card '" + s8 (a_control.id) + "' with " + a_control.children.count.out + " children")
-			create Result.make (1000)
-			Result.append ("    <div class=%"control container-control card-control col-")
-			Result.append (a_control.col_span.out)
-			Result.append ("%" data-id=%"")
-			Result.append (s8 (a_control.id))
-			Result.append ("%" data-container=%"card%" ")
-			Result.append ("hx-get=%"/htmx/properties/")
-			Result.append (s8 (a_spec_id))
-			Result.append ("/")
-			Result.append (s8 (a_screen_id))
-			Result.append ("/")
-			Result.append (s8 (a_control.id))
-			Result.append ("%" hx-target=%"#properties%" hx-swap=%"innerHTML%" ")
-			Result.append ("onclick=%"event.stopPropagation(); document.querySelectorAll('.control.selected').forEach(c=>c.classList.remove('selected')); this.classList.add('selected');%">%N")
+
+			l_props_url := "/htmx/properties/" + s8 (a_spec_id) + "/" + s8 (a_screen_id) + "/" + s8 (a_control.id)
+
+			l_card := html.div
+				.class_ ("control")
+				.class_ ("container-control")
+				.class_ ("card-control")
+				.class_ ("col-" + a_control.col_span.out)
+				.data ("id", s8 (a_control.id))
+				.data ("container", "card")
+				.hx_get (l_props_url)
+				.hx_target ("#properties")
+				.hx_swap_inner_html
+				.attr ("onclick", "event.stopPropagation(); document.querySelectorAll('.control.selected').forEach(c=>c.classList.remove('selected')); this.classList.add('selected');")
+
 			-- Card header
-			Result.append ("      <div class=%"card-header%">")
+			l_header := html.div.class_ ("card-header")
 			if a_control.label.is_empty then
-				Result.append ("Card")
+				l_header.text ("Card").do_nothing
 			else
-				Result.append (s8 (a_control.label))
+				l_header.text (s8 (a_control.label)).do_nothing
 			end
-			Result.append ("</div>%N")
+			l_card.containing (l_header).do_nothing
+
 			-- Card body (drop zone)
-			Result.append ("      <div class=%"card-body drop-zone%" data-parent=%"")
-			Result.append (s8 (a_control.id))
-			Result.append ("%">%N")
+			l_body := html.div
+				.class_ ("card-body")
+				.class_ ("drop-zone")
+				.data ("parent", s8 (a_control.id))
+
 			if a_control.children.is_empty then
-				Result.append ("        <div class=%"drop-placeholder%">Drop controls here</div>%N")
+				l_body.containing (html.div.class_ ("drop-placeholder").text ("Drop controls here")).do_nothing
 			else
 				across a_control.children as l_child loop
-					Result.append (render_control (l_child, a_spec_id, a_screen_id))
+					l_body.raw_html (render_control (l_child, a_spec_id, a_screen_id)).do_nothing
 				end
 			end
-			Result.append ("      </div>%N")
-			Result.append ("    </div>%N")
+			l_card.containing (l_body).do_nothing
+
+			Result := l_card.to_html_8
 		end
 
 	render_tabs_control (a_control: GUI_DESIGNER_CONTROL; a_spec_id, a_screen_id: STRING_32): STRING
 			-- Render tabs container with tab headers and panels.
 		local
-			l_tab_idx: INTEGER
-			l_active_idx: INTEGER
+			l_tabs, l_header_row, l_tab_header, l_add_btn, l_panel: HTMX_DIV
+			l_tab_idx, l_active_idx: INTEGER
+			l_props_url: STRING
 		do
 			log_debug ("[RENDER] Tabs '" + s8 (a_control.id) + "' with " + a_control.tab_panels.count.out + " panels")
 			l_active_idx := a_control.active_tab_index.max (1)
-			create Result.make (2000)
-			Result.append ("    <div class=%"control container-control tabs-control col-")
-			Result.append (a_control.col_span.out)
-			Result.append ("%" data-id=%"")
-			Result.append (s8 (a_control.id))
-			Result.append ("%" data-container=%"tabs%" ")
-			Result.append ("hx-get=%"/htmx/properties/")
-			Result.append (s8 (a_spec_id))
-			Result.append ("/")
-			Result.append (s8 (a_screen_id))
-			Result.append ("/")
-			Result.append (s8 (a_control.id))
-			Result.append ("%" hx-target=%"#properties%" hx-swap=%"innerHTML%" ")
-			Result.append ("onclick=%"event.stopPropagation(); document.querySelectorAll('.control.selected').forEach(c=>c.classList.remove('selected')); this.classList.add('selected');%">%N")
+
+			l_props_url := "/htmx/properties/" + s8 (a_spec_id) + "/" + s8 (a_screen_id) + "/" + s8 (a_control.id)
+
+			l_tabs := html.div
+				.class_ ("control")
+				.class_ ("container-control")
+				.class_ ("tabs-control")
+				.class_ ("col-" + a_control.col_span.out)
+				.data ("id", s8 (a_control.id))
+				.data ("container", "tabs")
+				.hx_get (l_props_url)
+				.hx_target ("#properties")
+				.hx_swap_inner_html
+				.attr ("onclick", "event.stopPropagation(); document.querySelectorAll('.control.selected').forEach(c=>c.classList.remove('selected')); this.classList.add('selected');")
+
 			-- Tab headers
-			Result.append ("      <div class=%"tabs-header%">%N")
+			l_header_row := html.div.class_ ("tabs-header")
 			l_tab_idx := 1
-			across a_control.tab_panels as l_panel loop
-				Result.append ("        <div class=%"tab-header")
+			across a_control.tab_panels as l_panel_data loop
+				l_tab_header := html.div.class_ ("tab-header")
 				if l_tab_idx = l_active_idx then
-					Result.append (" active")
+					l_tab_header.class_ ("active").do_nothing
 				end
-				Result.append ("%" data-tab-idx=%"")
-				Result.append (l_tab_idx.out)
-				Result.append ("%" data-tabs-id=%"")
-				Result.append (s8 (a_control.id))
-				Result.append ("%" onclick=%"switchTab(this, event)%">")
-				Result.append (s8 (l_panel.name))
-				Result.append ("</div>%N")
+				l_tab_header
+					.data ("tab-idx", l_tab_idx.out)
+					.data ("tabs-id", s8 (a_control.id))
+					.attr ("onclick", "switchTab(this, event)")
+					.text (s8 (l_panel_data.name)).do_nothing
+				l_header_row.containing (l_tab_header).do_nothing
 				l_tab_idx := l_tab_idx + 1
 			end
-			Result.append ("        <div class=%"tab-add-btn%" onclick=%"addTab('" + s8 (a_control.id) + "', event)%">+</div>%N")
-			Result.append ("      </div>%N")
+			-- Add tab button
+			l_add_btn := html.div
+				.class_ ("tab-add-btn")
+				.attr ("onclick", "addTab('" + s8 (a_control.id) + "', event)")
+				.text ("+")
+			l_header_row.containing (l_add_btn).do_nothing
+			l_tabs.containing (l_header_row).do_nothing
+
 			-- Tab panels (only active one visible)
 			l_tab_idx := 1
-			across a_control.tab_panels as l_panel loop
-				Result.append ("      <div class=%"tab-panel drop-zone")
+			across a_control.tab_panels as l_panel_data loop
+				l_panel := html.div
+					.class_ ("tab-panel")
+					.class_ ("drop-zone")
 				if l_tab_idx = l_active_idx then
-					Result.append (" active")
+					l_panel.class_ ("active").do_nothing
 				end
-				Result.append ("%" data-tab-idx=%"")
-				Result.append (l_tab_idx.out)
-				Result.append ("%" data-parent=%"")
-				Result.append (s8 (a_control.id))
-				Result.append ("%" data-panel-idx=%"")
-				Result.append (l_tab_idx.out)
-				Result.append ("%">%N")
-				if l_panel.children.is_empty then
-					Result.append ("        <div class=%"drop-placeholder%">Drop controls here</div>%N")
+				l_panel
+					.data ("tab-idx", l_tab_idx.out)
+					.data ("parent", s8 (a_control.id))
+					.data ("panel-idx", l_tab_idx.out).do_nothing
+
+				if l_panel_data.children.is_empty then
+					l_panel.containing (html.div.class_ ("drop-placeholder").text ("Drop controls here")).do_nothing
 				else
-					across l_panel.children as l_child loop
-						Result.append (render_control (l_child, a_spec_id, a_screen_id))
+					across l_panel_data.children as l_child loop
+						l_panel.raw_html (render_control (l_child, a_spec_id, a_screen_id)).do_nothing
 					end
 				end
-				Result.append ("      </div>%N")
+				l_tabs.containing (l_panel).do_nothing
 				l_tab_idx := l_tab_idx + 1
 			end
-			Result.append ("    </div>%N")
+
+			Result := l_tabs.to_html_8
 		end
 
 feature -- Palette Rendering
 
 	render_palette: STRING
 			-- Render control palette HTML.
+		local
+			l_palette, l_group: HTMX_DIV
 		do
-			create Result.make (3000)
-			Result.append ("<div class=%"palette%">%N")
-			Result.append ("  <h4>Controls</h4>%N")
+			l_palette := html.div.class_ ("palette")
+			l_palette.containing (html.h4.text ("Controls")).do_nothing
 
 			-- Input controls
-			Result.append ("  <div class=%"palette-group%">%N")
-			Result.append ("    <h5>Input</h5>%N")
-			Result.append ("    <div class=%"palette-item%" draggable=%"true%" data-type=%"text_field%">Text Field</div>%N")
-			Result.append ("    <div class=%"palette-item%" draggable=%"true%" data-type=%"text_area%">Text Area</div>%N")
-			Result.append ("    <div class=%"palette-item%" draggable=%"true%" data-type=%"dropdown%">Dropdown</div>%N")
-			Result.append ("    <div class=%"palette-item%" draggable=%"true%" data-type=%"checkbox%">Checkbox</div>%N")
-			Result.append ("    <div class=%"palette-item%" draggable=%"true%" data-type=%"date_picker%">Date Picker</div>%N")
-			Result.append ("  </div>%N")
+			l_group := html.div.class_ ("palette-group")
+			l_group.containing (html.h5.text ("Input")).do_nothing
+			l_group.containing (palette_item ("text_field", "Text Field")).do_nothing
+			l_group.containing (palette_item ("text_area", "Text Area")).do_nothing
+			l_group.containing (palette_item ("dropdown", "Dropdown")).do_nothing
+			l_group.containing (palette_item ("checkbox", "Checkbox")).do_nothing
+			l_group.containing (palette_item ("date_picker", "Date Picker")).do_nothing
+			l_palette.containing (l_group).do_nothing
 
 			-- Action controls
-			Result.append ("  <div class=%"palette-group%">%N")
-			Result.append ("    <h5>Actions</h5>%N")
-			Result.append ("    <div class=%"palette-item%" draggable=%"true%" data-type=%"button%">Button</div>%N")
-			Result.append ("    <div class=%"palette-item%" draggable=%"true%" data-type=%"link%">Link</div>%N")
-			Result.append ("  </div>%N")
+			l_group := html.div.class_ ("palette-group")
+			l_group.containing (html.h5.text ("Actions")).do_nothing
+			l_group.containing (palette_item ("button", "Button")).do_nothing
+			l_group.containing (palette_item ("link", "Link")).do_nothing
+			l_palette.containing (l_group).do_nothing
 
 			-- Display controls
-			Result.append ("  <div class=%"palette-group%">%N")
-			Result.append ("    <h5>Display</h5>%N")
-			Result.append ("    <div class=%"palette-item%" draggable=%"true%" data-type=%"label%">Label</div>%N")
-			Result.append ("    <div class=%"palette-item%" draggable=%"true%" data-type=%"heading%">Heading</div>%N")
-			Result.append ("    <div class=%"palette-item%" draggable=%"true%" data-type=%"table%">Table</div>%N")
-			Result.append ("    <div class=%"palette-item%" draggable=%"true%" data-type=%"list%">List</div>%N")
-			Result.append ("  </div>%N")
+			l_group := html.div.class_ ("palette-group")
+			l_group.containing (html.h5.text ("Display")).do_nothing
+			l_group.containing (palette_item ("label", "Label")).do_nothing
+			l_group.containing (palette_item ("heading", "Heading")).do_nothing
+			l_group.containing (palette_item ("table", "Table")).do_nothing
+			l_group.containing (palette_item ("list", "List")).do_nothing
+			l_palette.containing (l_group).do_nothing
 
 			-- Layout controls
-			Result.append ("  <div class=%"palette-group%">%N")
-			Result.append ("    <h5>Layout</h5>%N")
-			Result.append ("    <div class=%"palette-item%" draggable=%"true%" data-type=%"card%">Card</div>%N")
-			Result.append ("    <div class=%"palette-item%" draggable=%"true%" data-type=%"tabs%">Tabs</div>%N")
-			Result.append ("  </div>%N")
+			l_group := html.div.class_ ("palette-group")
+			l_group.containing (html.h5.text ("Layout")).do_nothing
+			l_group.containing (palette_item ("card", "Card")).do_nothing
+			l_group.containing (palette_item ("tabs", "Tabs")).do_nothing
+			l_palette.containing (l_group).do_nothing
 
-			Result.append ("</div>")
+			Result := l_palette.to_html_8
+		end
+
+	palette_item (a_type, a_label: STRING): HTMX_DIV
+			-- Create a single palette item.
+		do
+			Result := html.div
+				.class_ ("palette-item")
+				.attr ("draggable", "true")
+				.data ("type", a_type)
+				.text (a_label)
 		end
 
 feature -- Properties Rendering
 
 	render_properties (a_control: GUI_DESIGNER_CONTROL; a_spec_id, a_screen_id: STRING_32): STRING
 			-- Render properties panel HTML for control.
+		local
+			l_panel: HTMX_DIV
+			l_form: HTMX_FORM
+			l_api_url, l_canvas_url, l_props_url: STRING
 		do
-			create Result.make (2000)
-			Result.append ("<div class=%"properties-panel%">%N")
-			Result.append ("  <h4>")
-			Result.append (s8 (a_control.label))
-			Result.append ("</h4>%N")
-			Result.append ("  <p style=%"color:#666; font-size:12px; margin-top:-10px;%">")
-			Result.append (s8 (a_control.control_type))
-			Result.append ("</p>%N")
-			Result.append ("  <form hx-put=%"/api/specs/")
-			Result.append (s8 (a_spec_id))
-			Result.append ("/screens/")
-			Result.append (s8 (a_screen_id))
-			Result.append ("/controls/")
-			Result.append (s8 (a_control.id))
-			Result.append ("%" hx-trigger=%"submit%" hx-swap=%"none%" ")
-			Result.append ("hx-on::after-request=%"refreshCanvas()%"")
-			Result.append (" data-canvas-url=%"/htmx/canvas/")
-			Result.append (s8 (a_spec_id))
-			Result.append ("/")
-			Result.append (s8 (a_screen_id))
-			Result.append ("%"")
-			Result.append (" data-props-url=%"/htmx/properties/")
-			Result.append (s8 (a_spec_id))
-			Result.append ("/")
-			Result.append (s8 (a_screen_id))
-			Result.append ("/")
-			Result.append (s8 (a_control.id))
-			Result.append ("%"")
-			Result.append (" data-control-id=%"")
-			Result.append (s8 (a_control.id))
-			Result.append ("%">%N")
+			l_api_url := "/api/specs/" + s8 (a_spec_id) + "/screens/" + s8 (a_screen_id) + "/controls/" + s8 (a_control.id)
+			l_canvas_url := "/htmx/canvas/" + s8 (a_spec_id) + "/" + s8 (a_screen_id)
+			l_props_url := "/htmx/properties/" + s8 (a_spec_id) + "/" + s8 (a_screen_id) + "/" + s8 (a_control.id)
 
-			-- ID (read-only, not editable)
-			Result.append ("    <label>ID</label>%N")
-			Result.append ("    <input type=%"text%" value=%"")
-			Result.append (s8 (a_control.id))
-			Result.append ("%" disabled class=%"readonly-field%">%N")
+			l_panel := html.div.class_ ("properties-panel")
+			l_panel.containing (html.h4.text (s8 (a_control.label))).do_nothing
+			l_panel.containing (html.p.style ("color:#666; font-size:12px; margin-top:-10px;").text (s8 (a_control.control_type))).do_nothing
 
-			-- Type (read-only, not editable)
-			Result.append ("    <label>Type</label>%N")
-			Result.append ("    <input type=%"text%" value=%"")
-			Result.append (s8 (a_control.control_type))
-			Result.append ("%" disabled class=%"readonly-field%">%N")
+			-- Form with HTMX auto-submit
+			l_form := html.form
+				.hx_put (l_api_url)
+				.hx_trigger ("submit")
+				.hx_swap ("none")
+				.attr ("hx-on::after-request", "refreshCanvas()")
+				.data ("canvas-url", l_canvas_url)
+				.data ("props-url", l_props_url)
+				.data ("control-id", s8 (a_control.id))
 
-			-- Label (auto-submit on change)
-			Result.append ("    <label>Label</label>%N")
-			Result.append ("    <input type=%"text%" name=%"label%" value=%"")
-			Result.append (s8 (a_control.label))
-			Result.append ("%" onchange=%"htmx.trigger(this.form, 'submit')%">%N")
+			-- ID (read-only)
+			l_form.containing (html.label.text ("ID")).do_nothing
+			l_form.containing (
+				html.input_text ("").value (s8 (a_control.id)).attr ("disabled", "disabled").class_ ("readonly-field")
+			).do_nothing
 
-			-- Grid position with spinner buttons
-			Result.append ("    <label>Row</label>%N")
-			Result.append ("    <div class=%"spinner-group%">%N")
-			Result.append ("      <button type=%"button%" class=%"spin-btn%" onclick=%"var inp=this.nextElementSibling; inp.stepDown(); htmx.trigger(inp.form, 'submit')%">-</button>%N")
-			Result.append ("      <input type=%"number%" name=%"row%" value=%"")
-			Result.append (a_control.grid_row.out)
-			Result.append ("%" min=%"1%" class=%"spin-input%">%N")
-			Result.append ("      <button type=%"button%" class=%"spin-btn%" onclick=%"var inp=this.previousElementSibling; inp.stepUp(); htmx.trigger(inp.form, 'submit')%">+</button>%N")
-			Result.append ("    </div>%N")
+			-- Type (read-only)
+			l_form.containing (html.label.text ("Type")).do_nothing
+			l_form.containing (
+				html.input_text ("").value (s8 (a_control.control_type)).attr ("disabled", "disabled").class_ ("readonly-field")
+			).do_nothing
 
-			Result.append ("    <label>Column</label>%N")
-			Result.append ("    <div class=%"spinner-group%">%N")
-			Result.append ("      <button type=%"button%" class=%"spin-btn%" onclick=%"var inp=this.nextElementSibling; inp.stepDown(); htmx.trigger(inp.form, 'submit')%">-</button>%N")
-			Result.append ("      <input type=%"number%" name=%"col%" value=%"")
-			Result.append (a_control.grid_col.out)
-			Result.append ("%" min=%"1%" max=%"24%" class=%"spin-input%">%N")
-			Result.append ("      <button type=%"button%" class=%"spin-btn%" onclick=%"var inp=this.previousElementSibling; inp.stepUp(); htmx.trigger(inp.form, 'submit')%">+</button>%N")
-			Result.append ("    </div>%N")
+			-- Label (auto-submit)
+			l_form.containing (html.label.text ("Label")).do_nothing
+			l_form.containing (
+				html.input_text ("label").value (s8 (a_control.label)).attr ("onchange", "htmx.trigger(this.form, 'submit')")
+			).do_nothing
 
-			Result.append ("    <label>Column Span</label>%N")
-			Result.append ("    <div class=%"spinner-group%">%N")
-			Result.append ("      <button type=%"button%" class=%"spin-btn%" onclick=%"var inp=this.nextElementSibling; inp.stepDown(); htmx.trigger(inp.form, 'submit')%">-</button>%N")
-			Result.append ("      <input type=%"number%" name=%"col_span%" value=%"")
-			Result.append (a_control.col_span.out)
-			Result.append ("%" min=%"1%" max=%"24%" class=%"spin-input%">%N")
-			Result.append ("      <button type=%"button%" class=%"spin-btn%" onclick=%"var inp=this.previousElementSibling; inp.stepUp(); htmx.trigger(inp.form, 'submit')%">+</button>%N")
-			Result.append ("    </div>%N")
+			-- Grid Row spinner
+			l_form.containing (html.label.text ("Row")).do_nothing
+			l_form.containing (spinner_input ("row", a_control.grid_row, 1, 100)).do_nothing
 
-			-- Notes section (auto-submit on change)
-			Result.append ("    <label>Notes</label>%N")
-			Result.append ("    <textarea name=%"notes%" onchange=%"htmx.trigger(this.form, 'submit')%">")
+			-- Grid Column spinner
+			l_form.containing (html.label.text ("Column")).do_nothing
+			l_form.containing (spinner_input ("col", a_control.grid_col, 1, 24)).do_nothing
+
+			-- Column Span spinner
+			l_form.containing (html.label.text ("Column Span")).do_nothing
+			l_form.containing (spinner_input ("col_span", a_control.col_span, 1, 24)).do_nothing
+
+			-- Notes
+			l_form.containing (html.label.text ("Notes")).do_nothing
+			l_form.containing (notes_textarea (a_control)).do_nothing
+
+			l_panel.containing (l_form).do_nothing
+
+			-- Delete button (outside form)
+			l_panel.containing (html.hr.style ("margin: 20px 0; border: none; border-top: 1px solid #ddd;")).do_nothing
+			l_panel.containing (
+				html.button_text ("Delete Control")
+					.attr ("type", "button")
+					.class_ ("delete-btn")
+					.attr ("onclick", "deleteControl('" + s8 (a_spec_id) + "', '" + s8 (a_screen_id) + "', '" + s8 (a_control.id) + "')")
+			).do_nothing
+
+			Result := l_panel.to_html_8
+		end
+
+	spinner_input (a_name: STRING; a_value, a_min, a_max: INTEGER): HTMX_DIV
+			-- Create spinner input group with +/- buttons.
+		local
+			l_group: HTMX_DIV
+		do
+			l_group := html.div.class_ ("spinner-group")
+			l_group.containing (
+				html.button_text ("-")
+					.attr ("type", "button")
+					.class_ ("spin-btn")
+					.attr ("onclick", "var inp=this.nextElementSibling; inp.stepDown(); htmx.trigger(inp.form, 'submit')")
+			).do_nothing
+			l_group.containing (
+				html.input_number (a_name)
+					.value (a_value.out)
+					.attr ("min", a_min.out)
+					.attr ("max", a_max.out)
+					.class_ ("spin-input")
+			).do_nothing
+			l_group.containing (
+				html.button_text ("+")
+					.attr ("type", "button")
+					.class_ ("spin-btn")
+					.attr ("onclick", "var inp=this.previousElementSibling; inp.stepUp(); htmx.trigger(inp.form, 'submit')")
+			).do_nothing
+			Result := l_group
+		end
+
+	notes_textarea (a_control: GUI_DESIGNER_CONTROL): HTMX_TEXTAREA
+			-- Create notes textarea with current content.
+		local
+			l_notes: STRING
+		do
+			create l_notes.make (200)
 			across a_control.notes as l_note loop
-				Result.append (s8 (l_note))
-				Result.append ("%N")
+				l_notes.append (s8 (l_note))
+				l_notes.append ("%N")
 			end
-			Result.append ("</textarea>%N")
-
-			Result.append ("  </form>%N")
-
-			-- Delete button (outside the form)
-			Result.append ("  <hr style=%"margin: 20px 0; border: none; border-top: 1px solid #ddd;%">%N")
-			Result.append ("  <button type=%"button%" class=%"delete-btn%" ")
-			Result.append ("onclick=%"deleteControl('")
-			Result.append (s8 (a_spec_id))
-			Result.append ("', '")
-			Result.append (s8 (a_screen_id))
-			Result.append ("', '")
-			Result.append (s8 (a_control.id))
-			Result.append ("')%">Delete Control</button>%N")
-
-			Result.append ("</div>")
+			Result := html.textarea ("notes")
+				.attr ("onchange", "htmx.trigger(this.form, 'submit')")
+				.text (l_notes)
 		end
 
 feature -- List Rendering
 
 	render_screen_list (a_spec: GUI_DESIGNER_SPEC): STRING
 			-- Render screen list HTML.
+		local
+			l_ul: HTMX_UL
+			l_li: HTMX_LI
 		do
-			create Result.make (1000)
-			Result.append ("<ul class=%"screen-list%">%N")
+			l_ul := html.ul.class_ ("screen-list")
 			across a_spec.screens as l_screen loop
-				Result.append ("  <li hx-get=%"/htmx/canvas/")
-				Result.append (s8 (a_spec.app_name))
-				Result.append ("/")
-				Result.append (s8 (l_screen.id))
-				Result.append ("%" hx-target=%"#canvas%">")
-				Result.append (s8 (l_screen.title))
-				Result.append ("</li>%N")
+				create l_li.make
+				l_li
+					.hx_get ("/htmx/canvas/" + s8 (a_spec.app_name) + "/" + s8 (l_screen.id))
+					.hx_target ("#canvas")
+					.text (s8 (l_screen.title)).do_nothing
+				l_ul.containing (l_li).do_nothing
 			end
-			Result.append ("</ul>")
+			Result := l_ul.to_html_8
 		end
 
 	render_spec_list: STRING
 			-- Render spec list HTML for index page.
+		local
+			l_ul: HTMX_UL
+			l_item, l_info, l_actions: HTMX_DIV
 		do
-			create Result.make (2000)
 			if specs.is_empty then
-				Result.append ("<p style=%"color:#888; font-style:italic;%">No specifications loaded. Upload a JSON spec file to get started.</p>")
+				Result := html.p.style ("color:#888; font-style:italic;").text ("No specifications loaded. Upload a JSON spec file to get started.").to_html_8
 			else
-				Result.append ("<ul class=%"spec-list%">%N")
+				l_ul := html.ul.class_ ("spec-list")
 				across specs as l_spec loop
-					Result.append ("  <div class=%"spec-item%">%N")
-					Result.append ("    <div class=%"spec-info%">%N")
-					Result.append ("      <div class=%"spec-name%">")
-					Result.append (s8 (l_spec.app_name))
-					Result.append ("</div>%N")
-					Result.append ("      <div class=%"spec-meta%">Version ")
-					Result.append (l_spec.version.out)
-					Result.append (" | ")
-					Result.append (l_spec.screens.count.out)
-					Result.append (" screen(s)</div>%N")
-					Result.append ("    </div>%N")
-					Result.append ("    <div class=%"spec-actions%">%N")
-					Result.append ("      <a href=%"/api/specs/")
-					Result.append (s8 (l_spec.app_name))
-					Result.append ("/download%" class=%"btn btn-secondary btn-sm%">Download</a>%N")
-					Result.append ("      <a href=%"/designer?spec=")
-					Result.append (s8 (l_spec.app_name))
-					Result.append ("%" class=%"btn btn-success btn-sm%">Edit</a>%N")
-					Result.append ("    </div>%N")
-					Result.append ("  </div>%N")
+					l_item := html.div.class_ ("spec-item")
+
+					-- Spec info
+					l_info := html.div.class_ ("spec-info")
+					l_info.containing (html.div.class_ ("spec-name").text (s8 (l_spec.app_name))).do_nothing
+					l_info.containing (
+						html.div.class_ ("spec-meta").text ("Version " + l_spec.version.out + " | " + l_spec.screens.count.out + " screen(s)")
+					).do_nothing
+					l_item.containing (l_info).do_nothing
+
+					-- Spec actions
+					l_actions := html.div.class_ ("spec-actions")
+					l_actions.containing (
+						html.link ("/api/specs/" + s8 (l_spec.app_name) + "/download", "Download").class_ ("btn btn-secondary btn-sm")
+					).do_nothing
+					l_actions.containing (
+						html.link ("/designer?spec=" + s8 (l_spec.app_name), "Edit").class_ ("btn btn-success btn-sm")
+					).do_nothing
+					l_item.containing (l_actions).do_nothing
+
+					l_ul.containing (l_item).do_nothing
 				end
-				Result.append ("</ul>")
+				Result := l_ul.to_html_8
 			end
 		end
 

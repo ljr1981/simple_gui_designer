@@ -10,8 +10,7 @@ note
 		- GDS_HTMX_HANDLERS: HTMX partial responses
 		- GDS_EXPORT_HANDLERS: Export and finalization
 		- GDS_DOWNLOAD_UPLOAD_HANDLERS: File download/upload
-		- GDS_HTML_RENDERER: HTML rendering functions
-		- GDS_STATIC_HTML: Static page templates
+		- GDS_STATIC_HTML: Static page templates (inherits GDS_HTML_RENDERER)
 
 		All handlers inherit from GDS_SHARED_STATE which defines deferred
 		features for accessing shared state (specs, server, etc.).
@@ -32,8 +31,9 @@ inherit
 	GDS_HTMX_HANDLERS
 	GDS_EXPORT_HANDLERS
 	GDS_DOWNLOAD_UPLOAD_HANDLERS
-	GDS_HTML_RENDERER
 	GDS_STATIC_HTML
+		-- Note: GDS_STATIC_HTML inherits from GDS_HTML_RENDERER,
+		-- which provides the html: HTMX_FACTORY feature
 
 create
 	make

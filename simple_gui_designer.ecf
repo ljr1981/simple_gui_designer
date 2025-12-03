@@ -18,6 +18,7 @@
 		<library name="logging" location="$ISE_LIBRARY\library\runtime\logging\logging.ecf"/>
 		<library name="simple_json" location="$SIMPLE_JSON\simple_json.ecf"/>
 		<library name="simple_web" location="$SIMPLE_WEB\simple_web.ecf"/>
+		<library name="simple_htmx" location="$SIMPLE_HTMX\simple_htmx.ecf"/>
 		<library name="testing_ext" location="$TESTING_EXT\testing_ext.ecf"/>
 		<cluster name="src" location=".\src\" recursive="true"/>
 	</target>

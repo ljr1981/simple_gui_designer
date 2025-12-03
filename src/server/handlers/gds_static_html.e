@@ -15,7 +15,7 @@ deferred class
 	GDS_STATIC_HTML
 
 inherit
-	GDS_SHARED_STATE
+	GDS_HTML_RENDERER
 
 feature -- Static HTML
 
@@ -328,35 +328,80 @@ body { font-family: sans-serif; margin: 0; display: flex; height: 100vh; }
 
 	designer_sidebar (a_name: STRING): STRING
 			-- Sidebar HTML.
+		local
+			l_sidebar: HTMX_DIV
 		do
-			create Result.make (500)
-			Result.append ("<div class=%"sidebar%">%N")
-			Result.append ("<h3>Screens</h3>%N")
-			Result.append ("<div id=%"screen-list%" hx-get=%"/htmx/screen-list/" + a_name + "%" hx-trigger=%"load%">Loading...</div>%N")
-			Result.append ("<hr>%N")
-			Result.append ("<div id=%"palette%" hx-get=%"/htmx/palette%" hx-trigger=%"load%">Loading palette...</div>%N")
-			Result.append ("</div>%N")
+			l_sidebar := html.div.class_ ("sidebar")
+			l_sidebar.containing (html.h3.text ("Screens")).do_nothing
+			l_sidebar.containing (
+				html.div.id ("screen-list")
+					.hx_get ("/htmx/screen-list/" + a_name)
+					.hx_trigger_load
+					.text ("Loading...")
+			).do_nothing
+			l_sidebar.containing (html.hr).do_nothing
+			l_sidebar.containing (
+				html.div.id ("palette")
+					.hx_get ("/htmx/palette")
+					.hx_trigger_load
+					.text ("Loading palette...")
+			).do_nothing
+			Result := l_sidebar.to_html_8
 		end
 
 	designer_main_area (a_name: STRING): STRING
 			-- Main area HTML with toolbar.
+		local
+			l_main, l_toolbar: HTMX_DIV
+			l_finalize_js, l_save_js: STRING
 		do
-			create Result.make (1000)
-			Result.append ("<div class=%"main%">%N")
-			Result.append ("<div class=%"toolbar%">%N")
-			Result.append ("<strong>GUI Designer</strong> - " + a_name + " | %N")
-			Result.append ("<button type=%"button%" onclick=%"createNewScreen('" + a_name + "')%">+ New Screen</button> %N")
-			Result.append ("<button hx-post=%"/api/specs/" + a_name + "/finalize%" hx-swap=%"none%" ")
-			Result.append ("hx-on::after-request=%"this.textContent='Finalized!'; this.style.background='#4CAF50'; var eb=document.getElementById('export-btn'); eb.style.opacity='1'; eb.style.pointerEvents='auto';%">Finalize</button> %N")
-			Result.append ("<a id=%"export-btn%" href=%"/api/specs/" + a_name + "/export%" class=%"btn%" ")
-			Result.append ("style=%"opacity:0.5; pointer-events:none%">Export</a> %N")
-			Result.append ("<button hx-post=%"/api/specs/" + a_name + "/save%" hx-swap=%"none%" ")
-			Result.append ("hx-on::after-request=%"this.textContent='Saved!'; this.style.background='#4CAF50'; setTimeout(function(){this.textContent='Save'; this.style.background='';},2000)%">Save</button> %N")
-			Result.append ("<a href=%"/api/specs/" + a_name + "/download%" class=%"btn%">Download</a> %N")
-			Result.append ("<a href=%"/%" style=%"color:#aaa; margin-left:20px;%">Back to Home</a>%N")
-			Result.append ("</div>%N")
-			Result.append ("<div id=%"canvas%"><p>Select a screen from the sidebar to begin designing.</p></div>%N")
-			Result.append ("</div>%N")
+			l_finalize_js := "this.textContent='Finalized!'; this.style.background='#4CAF50'; var eb=document.getElementById('export-btn'); eb.style.opacity='1'; eb.style.pointerEvents='auto';"
+			l_save_js := "this.textContent='Saved!'; this.style.background='#4CAF50'; setTimeout(function(){this.textContent='Save'; this.style.background='';},2000)"
+
+			l_toolbar := html.div.class_ ("toolbar")
+			l_toolbar.raw_html ("<strong>GUI Designer</strong> - " + a_name + " | ").do_nothing
+			l_toolbar.containing (
+				html.button_text ("+ New Screen")
+					.attr ("type", "button")
+					.attr ("onclick", "createNewScreen('" + a_name + "')")
+			).do_nothing
+			l_toolbar.raw_html (" ").do_nothing
+			l_toolbar.containing (
+				html.button_text ("Finalize")
+					.hx_post ("/api/specs/" + a_name + "/finalize")
+					.hx_swap_none
+					.attr ("hx-on::after-request", l_finalize_js)
+			).do_nothing
+			l_toolbar.raw_html (" ").do_nothing
+			l_toolbar.containing (
+				html.link ("/api/specs/" + a_name + "/export", "Export")
+					.id ("export-btn")
+					.class_ ("btn")
+					.style ("opacity:0.5; pointer-events:none")
+			).do_nothing
+			l_toolbar.raw_html (" ").do_nothing
+			l_toolbar.containing (
+				html.button_text ("Save")
+					.hx_post ("/api/specs/" + a_name + "/save")
+					.hx_swap_none
+					.attr ("hx-on::after-request", l_save_js)
+			).do_nothing
+			l_toolbar.raw_html (" ").do_nothing
+			l_toolbar.containing (
+				html.link ("/api/specs/" + a_name + "/download", "Download").class_ ("btn")
+			).do_nothing
+			l_toolbar.raw_html (" ").do_nothing
+			l_toolbar.containing (
+				html.link ("/", "Back to Home").style ("color:#aaa; margin-left:20px;")
+			).do_nothing
+
+			l_main := html.div.class_ ("main")
+			l_main.containing (l_toolbar).do_nothing
+			l_main.containing (
+				html.div.id ("canvas").containing (html.p.text ("Select a screen from the sidebar to begin designing."))
+			).do_nothing
+
+			Result := l_main.to_html_8
 		end
 
 	designer_properties_panel: STRING
