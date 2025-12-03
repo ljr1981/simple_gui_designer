@@ -1,0 +1,622 @@
+{
+  "app_name": "todo_app",
+  "version": 1,
+  "author": "Claude Code",
+  "created_date": "2025-12-02",
+  "description": "GUI specification for the TODO application",
+  "screens": [
+    {
+      "id": "todo_list",
+      "title": "My Todos",
+      "description": "Main todo list view with filtering and actions",
+      "layout": "12_column",
+      "controls": [
+        {
+          "id": "page_heading",
+          "type": "heading",
+          "label": "My Todos",
+          "grid_row": 1,
+          "grid_col": 1,
+          "col_span": 8,
+          "properties": {
+            "level": 1
+          }
+        },
+        {
+          "id": "stats_display",
+          "type": "label",
+          "label": "0 of 0 completed",
+          "grid_row": 1,
+          "grid_col": 9,
+          "col_span": 4,
+          "data_binding": "completion_stats",
+          "properties": {
+            "style": "muted",
+            "align": "right"
+          }
+        },
+        {
+          "id": "add_button",
+          "type": "button",
+          "label": "Add Todo",
+          "grid_row": 2,
+          "grid_col": 1,
+          "col_span": 2,
+          "action": {
+            "type": "navigate",
+            "target": "add_todo"
+          },
+          "properties": {
+            "variant": "primary"
+          }
+        },
+        {
+          "id": "filter_dropdown",
+          "type": "dropdown",
+          "label": "Filter",
+          "grid_row": 2,
+          "grid_col": 3,
+          "col_span": 3,
+          "data_binding": "current_filter",
+          "options": [
+            {"value": "all", "label": "All Todos"},
+            {"value": "incomplete", "label": "Incomplete"},
+            {"value": "completed", "label": "Completed"},
+            {"value": "high_priority", "label": "High Priority"},
+            {"value": "overdue", "label": "Overdue"}
+          ],
+          "action": {
+            "type": "refresh",
+            "target": "todo_table"
+          }
+        },
+        {
+          "id": "search_field",
+          "type": "text_field",
+          "label": "Search",
+          "grid_row": 2,
+          "grid_col": 7,
+          "col_span": 4,
+          "data_binding": "search_term",
+          "properties": {
+            "placeholder": "Search todos..."
+          },
+          "action": {
+            "type": "refresh",
+            "target": "todo_table",
+            "debounce_ms": 300
+          }
+        },
+        {
+          "id": "clear_completed_button",
+          "type": "button",
+          "label": "Clear Completed",
+          "grid_row": 2,
+          "grid_col": 11,
+          "col_span": 2,
+          "action": {
+            "type": "command",
+            "command": "clear_completed"
+          },
+          "properties": {
+            "variant": "secondary"
+          }
+        },
+        {
+          "id": "todo_table",
+          "type": "table",
+          "label": "Todos",
+          "grid_row": 3,
+          "grid_col": 1,
+          "col_span": 12,
+          "data_binding": "todos",
+          "columns": [
+            {
+              "field": "is_completed",
+              "header": "",
+              "type": "checkbox",
+              "width": 40,
+              "action": {"type": "command", "command": "toggle_completed"}
+            },
+            {
+              "field": "priority",
+              "header": "Pri",
+              "type": "badge",
+              "width": 50
+            },
+            {
+              "field": "title",
+              "header": "Title",
+              "type": "link",
+              "action": {"type": "navigate", "target": "todo_details"}
+            },
+            {
+              "field": "due_date",
+              "header": "Due",
+              "type": "date",
+              "width": 100
+            },
+            {
+              "field": "actions",
+              "header": "",
+              "type": "actions",
+              "width": 100,
+              "items": [
+                {"icon": "edit", "action": {"type": "navigate", "target": "edit_todo"}},
+                {"icon": "delete", "action": {"type": "command", "command": "delete_todo"}}
+              ]
+            }
+          ],
+          "properties": {
+            "sortable": true,
+            "empty_message": "No todos yet. Click 'Add Todo' to get started!"
+          }
+        }
+      ],
+      "notes": [
+        "Consider adding keyboard shortcuts (n=new, d=delete, space=toggle)",
+        "Table rows should have visual distinction for completed items (strikethrough)",
+        "Priority badges: 1=red, 2=orange, 3=yellow, 4=blue, 5=gray"
+      ]
+    },
+    {
+      "id": "add_todo",
+      "title": "Add New Todo",
+      "description": "Form for creating a new todo item",
+      "layout": "12_column",
+      "controls": [
+        {
+          "id": "page_heading",
+          "type": "heading",
+          "label": "Add New Todo",
+          "grid_row": 1,
+          "grid_col": 1,
+          "col_span": 12,
+          "properties": {
+            "level": 1
+          }
+        },
+        {
+          "id": "title_field",
+          "type": "text_field",
+          "label": "Title",
+          "grid_row": 2,
+          "grid_col": 1,
+          "col_span": 8,
+          "data_binding": "new_todo.title",
+          "validation_rules": ["required", "max_length:200"],
+          "properties": {
+            "placeholder": "What needs to be done?",
+            "autofocus": true
+          }
+        },
+        {
+          "id": "priority_dropdown",
+          "type": "dropdown",
+          "label": "Priority",
+          "grid_row": 2,
+          "grid_col": 9,
+          "col_span": 4,
+          "data_binding": "new_todo.priority",
+          "validation_rules": ["required"],
+          "options": [
+            {"value": "1", "label": "1 - Highest"},
+            {"value": "2", "label": "2 - High"},
+            {"value": "3", "label": "3 - Medium"},
+            {"value": "4", "label": "4 - Low"},
+            {"value": "5", "label": "5 - Lowest"}
+          ],
+          "properties": {
+            "default_value": "3"
+          }
+        },
+        {
+          "id": "description_field",
+          "type": "text_area",
+          "label": "Description",
+          "grid_row": 3,
+          "grid_col": 1,
+          "col_span": 12,
+          "data_binding": "new_todo.description",
+          "validation_rules": ["max_length:2000"],
+          "properties": {
+            "rows": 4,
+            "placeholder": "Add more details (optional)"
+          }
+        },
+        {
+          "id": "due_date_field",
+          "type": "date_picker",
+          "label": "Due Date",
+          "grid_row": 4,
+          "grid_col": 1,
+          "col_span": 4,
+          "data_binding": "new_todo.due_date",
+          "properties": {
+            "min_date": "today",
+            "placeholder": "Optional"
+          }
+        },
+        {
+          "id": "cancel_button",
+          "type": "button",
+          "label": "Cancel",
+          "grid_row": 5,
+          "grid_col": 9,
+          "col_span": 2,
+          "action": {
+            "type": "navigate",
+            "target": "todo_list"
+          },
+          "properties": {
+            "variant": "secondary"
+          }
+        },
+        {
+          "id": "save_button",
+          "type": "button",
+          "label": "Save Todo",
+          "grid_row": 5,
+          "grid_col": 11,
+          "col_span": 2,
+          "action": {
+            "type": "submit",
+            "command": "add_todo",
+            "on_success": {"type": "navigate", "target": "todo_list"}
+          },
+          "properties": {
+            "variant": "primary"
+          }
+        }
+      ],
+      "notes": [
+        "Title field should get focus on page load",
+        "Form validation should show inline errors",
+        "Consider 'Save and Add Another' button for rapid entry"
+      ]
+    },
+    {
+      "id": "edit_todo",
+      "title": "Edit Todo",
+      "description": "Form for editing an existing todo item",
+      "layout": "12_column",
+      "route_params": ["todo_id"],
+      "data_load": {
+        "source": "find_todo",
+        "params": ["todo_id"]
+      },
+      "controls": [
+        {
+          "id": "page_heading",
+          "type": "heading",
+          "label": "Edit Todo",
+          "grid_row": 1,
+          "grid_col": 1,
+          "col_span": 12,
+          "properties": {
+            "level": 1
+          }
+        },
+        {
+          "id": "title_field",
+          "type": "text_field",
+          "label": "Title",
+          "grid_row": 2,
+          "grid_col": 1,
+          "col_span": 8,
+          "data_binding": "todo.title",
+          "validation_rules": ["required", "max_length:200"]
+        },
+        {
+          "id": "priority_dropdown",
+          "type": "dropdown",
+          "label": "Priority",
+          "grid_row": 2,
+          "grid_col": 9,
+          "col_span": 4,
+          "data_binding": "todo.priority",
+          "validation_rules": ["required"],
+          "options": [
+            {"value": "1", "label": "1 - Highest"},
+            {"value": "2", "label": "2 - High"},
+            {"value": "3", "label": "3 - Medium"},
+            {"value": "4", "label": "4 - Low"},
+            {"value": "5", "label": "5 - Lowest"}
+          ]
+        },
+        {
+          "id": "description_field",
+          "type": "text_area",
+          "label": "Description",
+          "grid_row": 3,
+          "grid_col": 1,
+          "col_span": 12,
+          "data_binding": "todo.description",
+          "validation_rules": ["max_length:2000"],
+          "properties": {
+            "rows": 4
+          }
+        },
+        {
+          "id": "due_date_field",
+          "type": "date_picker",
+          "label": "Due Date",
+          "grid_row": 4,
+          "grid_col": 1,
+          "col_span": 4,
+          "data_binding": "todo.due_date"
+        },
+        {
+          "id": "completed_checkbox",
+          "type": "checkbox",
+          "label": "Completed",
+          "grid_row": 4,
+          "grid_col": 5,
+          "col_span": 2,
+          "data_binding": "todo.is_completed"
+        },
+        {
+          "id": "created_label",
+          "type": "label",
+          "label": "Created",
+          "grid_row": 4,
+          "grid_col": 8,
+          "col_span": 2,
+          "data_binding": "todo.created_at",
+          "properties": {
+            "style": "muted",
+            "format": "datetime"
+          }
+        },
+        {
+          "id": "updated_label",
+          "type": "label",
+          "label": "Updated",
+          "grid_row": 4,
+          "grid_col": 10,
+          "col_span": 3,
+          "data_binding": "todo.updated_at",
+          "properties": {
+            "style": "muted",
+            "format": "datetime"
+          }
+        },
+        {
+          "id": "delete_button",
+          "type": "button",
+          "label": "Delete",
+          "grid_row": 5,
+          "grid_col": 1,
+          "col_span": 2,
+          "action": {
+            "type": "command",
+            "command": "delete_todo",
+            "confirm": "Are you sure you want to delete this todo?",
+            "on_success": {"type": "navigate", "target": "todo_list"}
+          },
+          "properties": {
+            "variant": "danger"
+          }
+        },
+        {
+          "id": "cancel_button",
+          "type": "button",
+          "label": "Cancel",
+          "grid_row": 5,
+          "grid_col": 9,
+          "col_span": 2,
+          "action": {
+            "type": "navigate",
+            "target": "todo_list"
+          },
+          "properties": {
+            "variant": "secondary"
+          }
+        },
+        {
+          "id": "save_button",
+          "type": "button",
+          "label": "Save Changes",
+          "grid_row": 5,
+          "grid_col": 11,
+          "col_span": 2,
+          "action": {
+            "type": "submit",
+            "command": "update_todo",
+            "on_success": {"type": "navigate", "target": "todo_list"}
+          },
+          "properties": {
+            "variant": "primary"
+          }
+        }
+      ],
+      "notes": [
+        "Show 404 error if todo_id not found",
+        "Confirm before delete",
+        "Disable save if no changes made (optional enhancement)"
+      ]
+    },
+    {
+      "id": "todo_details",
+      "title": "Todo Details",
+      "description": "Read-only view of a todo item",
+      "layout": "12_column",
+      "route_params": ["todo_id"],
+      "data_load": {
+        "source": "find_todo",
+        "params": ["todo_id"]
+      },
+      "controls": [
+        {
+          "id": "back_link",
+          "type": "link",
+          "label": "Back to List",
+          "grid_row": 1,
+          "grid_col": 1,
+          "col_span": 2,
+          "action": {
+            "type": "navigate",
+            "target": "todo_list"
+          },
+          "properties": {
+            "icon": "arrow_left"
+          }
+        },
+        {
+          "id": "edit_button",
+          "type": "button",
+          "label": "Edit",
+          "grid_row": 1,
+          "grid_col": 11,
+          "col_span": 2,
+          "action": {
+            "type": "navigate",
+            "target": "edit_todo",
+            "params": ["todo_id"]
+          },
+          "properties": {
+            "variant": "secondary"
+          }
+        },
+        {
+          "id": "status_badge",
+          "type": "label",
+          "label": "",
+          "grid_row": 2,
+          "grid_col": 1,
+          "col_span": 2,
+          "data_binding": "todo.is_completed",
+          "properties": {
+            "format": "status_badge"
+          }
+        },
+        {
+          "id": "priority_badge",
+          "type": "label",
+          "label": "",
+          "grid_row": 2,
+          "grid_col": 3,
+          "col_span": 2,
+          "data_binding": "todo.priority",
+          "properties": {
+            "format": "priority_badge"
+          }
+        },
+        {
+          "id": "title_display",
+          "type": "heading",
+          "label": "",
+          "grid_row": 3,
+          "grid_col": 1,
+          "col_span": 12,
+          "data_binding": "todo.title",
+          "properties": {
+            "level": 2
+          }
+        },
+        {
+          "id": "description_card",
+          "type": "card",
+          "label": "Description",
+          "grid_row": 4,
+          "grid_col": 1,
+          "col_span": 12,
+          "children": [
+            {
+              "id": "description_text",
+              "type": "label",
+              "label": "",
+              "data_binding": "todo.description",
+              "properties": {
+                "empty_text": "No description provided."
+              }
+            }
+          ]
+        },
+        {
+          "id": "due_date_display",
+          "type": "label",
+          "label": "Due Date",
+          "grid_row": 5,
+          "grid_col": 1,
+          "col_span": 4,
+          "data_binding": "todo.due_date",
+          "properties": {
+            "format": "date",
+            "empty_text": "No due date"
+          }
+        },
+        {
+          "id": "created_display",
+          "type": "label",
+          "label": "Created",
+          "grid_row": 5,
+          "grid_col": 5,
+          "col_span": 4,
+          "data_binding": "todo.created_at",
+          "properties": {
+            "format": "datetime"
+          }
+        },
+        {
+          "id": "updated_display",
+          "type": "label",
+          "label": "Last Updated",
+          "grid_row": 5,
+          "grid_col": 9,
+          "col_span": 4,
+          "data_binding": "todo.updated_at",
+          "properties": {
+            "format": "datetime"
+          }
+        },
+        {
+          "id": "toggle_button",
+          "type": "button",
+          "label": "Mark Complete",
+          "grid_row": 6,
+          "grid_col": 1,
+          "col_span": 3,
+          "data_binding": "todo.is_completed",
+          "action": {
+            "type": "command",
+            "command": "toggle_completed"
+          },
+          "properties": {
+            "variant": "success",
+            "toggle_label": "Mark Incomplete"
+          }
+        }
+      ],
+      "notes": [
+        "Toggle button text changes based on completion status",
+        "Show overdue warning if past due date and incomplete"
+      ]
+    }
+  ],
+  "navigation": {
+    "default_screen": "todo_list",
+    "routes": [
+      {"path": "/", "screen": "todo_list"},
+      {"path": "/add", "screen": "add_todo"},
+      {"path": "/edit/:todo_id", "screen": "edit_todo"},
+      {"path": "/view/:todo_id", "screen": "todo_details"}
+    ]
+  },
+  "theme": {
+    "primary_color": "#4CAF50",
+    "danger_color": "#f44336",
+    "priority_colors": {
+      "1": "#f44336",
+      "2": "#ff9800",
+      "3": "#ffeb3b",
+      "4": "#2196f3",
+      "5": "#9e9e9e"
+    }
+  },
+  "notes": [
+    "This spec is for the TODO app demonstrating SIMPLE_SQL library usage",
+    "The data bindings reference features in TODO_APP and TODO_ITEM classes",
+    "Commands map to TODO_APP features: add_todo, complete_todo, delete_todo, etc."
+  ]
+}
