@@ -19,7 +19,7 @@
 		<library name="simple_json" location="$SIMPLE_JSON\simple_json.ecf"/>
 		<library name="simple_web" location="$SIMPLE_WEB\simple_web.ecf"/>
 		<library name="simple_htmx" location="$SIMPLE_HTMX\simple_htmx.ecf"/>
-		<library name="testing_ext" location="$TESTING_EXT\testing_ext.ecf"/>
+		<library name="simple_testing" location="$SIMPLE_TESTING\simple_testing.ecf"/>
 		<cluster name="src" location=".\src\" recursive="true"/>
 	</target>
 	<target name="simple_gui_designer_app" extends="simple_gui_designer">
@@ -28,7 +28,6 @@
 	</target>
 	<target name="simple_gui_designer_tests" extends="simple_gui_designer">
 		<root class="ANY" feature="default_create"/>
-		<library name="testing" location="$ISE_LIBRARY\library\testing\testing.ecf"/>
 		<cluster name="tests" location=".\testing\" recursive="true"/>
 	</target>
 </system>
