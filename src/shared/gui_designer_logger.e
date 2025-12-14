@@ -17,16 +17,14 @@ class
 
 feature -- Access
 
-	log_facility: LOG_LOGGING_FACILITY
+
+	log_facility: SIMPLE_LOGGER
 			-- Shared logging facility (process-wide singleton).
 			-- Writes to system.log in current working directory.
 		once ("PROCESS")
-			create Result.make
-			-- Enable debug log level (default is error-only)
-			Result.default_log_writer_file.enable_debug_log_level
-			-- Enable file logging (writes to system.log in cwd)
-			Result.enable_default_file_log
-			print ("LOG: Facility initialized, writers=" + Result.log_writer_count.out + "%N")
+			create Result.make_to_file ("system.log")
+			Result.set_log_level (Result.Level_debug)
+			print ("LOG: Facility initialized with simple_logger%N")
 		ensure
 			result_attached: Result /= Void
 		end
@@ -36,33 +34,25 @@ feature -- Logging Operations
 	log_debug (a_message: STRING)
 			-- Log debug-level message.
 		do
-			if log_facility.log_writer_count > 0 then
-				log_facility.write_debug (a_message)
-			end
+			log_facility.debug_log (a_message)
 		end
 
 	log_info (a_message: STRING)
 			-- Log information-level message.
 		do
-			if log_facility.log_writer_count > 0 then
-				log_facility.write_information (a_message)
-			end
+			log_facility.log_info (a_message)
 		end
 
 	log_warning (a_message: STRING)
 			-- Log warning-level message.
 		do
-			if log_facility.log_writer_count > 0 then
-				log_facility.write_warning (a_message)
-			end
+			log_facility.log_warn (a_message)
 		end
 
 	log_error (a_message: STRING)
 			-- Log error-level message.
 		do
-			if log_facility.log_writer_count > 0 then
-				log_facility.write_error (a_message)
-			end
+			log_facility.log_error (a_message)
 		end
 
 feature -- Request Logging
