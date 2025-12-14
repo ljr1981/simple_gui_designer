@@ -1,0 +1,9 @@
+{
+  "name": "simple_gui_designer",
+  "version": "0.1.0",
+  "description": "Simple Eiffel library: simple_gui_designer",
+  "author": "Larry Rix",
+  "license": "MIT",
+  "category": "tools",
+  "keywords": ["gui", "designer", "visual", "forms"]
+}
